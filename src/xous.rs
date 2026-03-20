@@ -56,33 +56,29 @@ mod sys {
     use core::arch::asm;
 
     pub fn increase_heap(length: usize) -> Result<(usize, usize), ()> {
-        let syscall_map_memory: usize = 2;
-        let phys: usize = 0;
-        let virt: usize = 0;
-        let flags: usize = 0b0000_0101; // POPULATE | W
+        let syscall_no_increase_heap = 10usize;
+        let memory_flags_read_write = 2usize | 4usize;
 
-        let r0: usize;
-        let r1: usize;
-        let r2: usize;
+        let mut x0 = syscall_no_increase_heap;
+        let mut x1 = length;
+        let mut x2 = memory_flags_read_write;
 
         unsafe {
             asm!(
                 "svc #0",
-                inlateout("x0") syscall_map_memory => r0,
-                inlateout("x1") phys => r1,
-                inlateout("x2") virt => r2,
-                inlateout("x3") length => _,
-                inlateout("x4") flags => _,
-                inlateout("x5") 0usize => _,
-                inlateout("x8") 0usize => _,
-                inlateout("x9") 0usize => _,
-                lateout("x6") _,
-                lateout("x7") _,
-            );
-        }
+                inlateout("x0") x0,
+                inlateout("x1") x1,
+                inlateout("x2") x2,
+                lateout("x3") _,
+                lateout("x4") _,
+                lateout("x5") _,
+                lateout("x8") _,
+                lateout("x9") _,
+            )
+        };
 
-        if r0 == 3 && r1 != 0 && r2 != 0 {
-            Ok((r1, r2))
+        if x0 == 3 && x1 != 0 && x2 != 0 {
+            Ok((x1, x2))
         } else {
             Err(())
         }
