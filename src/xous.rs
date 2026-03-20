@@ -51,18 +51,57 @@ mod sys {
     }
 }
 
+#[cfg(target_arch = "aarch64")]
+mod sys {
+    use core::arch::asm;
+
+    pub fn increase_heap(length: usize) -> Result<(usize, usize), ()> {
+        let syscall_map_memory: usize = 2;
+        let phys: usize = 0;
+        let virt: usize = 0;
+        let flags: usize = 0b0000_0101; // POPULATE | W
+
+        let r0: usize;
+        let r1: usize;
+        let r2: usize;
+
+        unsafe {
+            asm!(
+                "svc #0",
+                inlateout("x0") syscall_map_memory => r0,
+                inlateout("x1") phys => r1,
+                inlateout("x2") virt => r2,
+                inlateout("x3") length => _,
+                inlateout("x4") flags => _,
+                inlateout("x5") 0usize => _,
+                inlateout("x8") 0usize => _,
+                inlateout("x9") 0usize => _,
+                lateout("x6") _,
+                lateout("x7") _,
+            );
+        }
+
+        if r0 == 3 && r1 != 0 && r2 != 0 {
+            Ok((r1, r2))
+        } else {
+            Err(())
+        }
+    }
+}
+
 unsafe impl Allocator for System {
     /// Allocate an additional `size` bytes on the heap, and return a new
     /// chunk of memory, as well as the size of the allocation and some
     /// flags. Since flags are unused on this platform, they will always
     /// be `0`.
     fn alloc(&self, size: usize) -> (*mut u8, usize, u32) {
+        let page_sz = self.page_size();
         let size = if size == 0 {
-            4096
-        } else if size & 4095 == 0 {
+            page_sz
+        } else if size & (page_sz - 1) == 0 {
             size
         } else {
-            size + (4096 - (size & 4095))
+            size + (page_sz - (size & (page_sz - 1)))
         };
 
         if let Ok((address, length)) = sys::increase_heap(size) {
@@ -91,11 +130,17 @@ unsafe impl Allocator for System {
     }
 
     fn allocates_zeros(&self) -> bool {
-        true
+        #[cfg(target_arch = "aarch64")]
+        { false }
+        #[cfg(not(target_arch = "aarch64"))]
+        { true }
     }
 
     fn page_size(&self) -> usize {
-        4 * 1024
+        #[cfg(target_arch = "aarch64")]
+        { 16 * 1024 }
+        #[cfg(not(target_arch = "aarch64"))]
+        { 4 * 1024 }
     }
 }
 

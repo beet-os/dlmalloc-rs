@@ -80,7 +80,7 @@ cfg_if::cfg_if! {
     } else if #[cfg(target_os = "windows")] {
         #[path = "windows.rs"]
         mod sys;
-    } else if #[cfg(target_os = "xous")] {
+    } else if #[cfg(any(target_os = "xous", target_os = "beetos"))] {
         #[path = "xous.rs"]
         mod sys;
     } else if #[cfg(any(target_os = "linux", target_os = "macos"))] {
